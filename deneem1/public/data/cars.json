@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "name": "BMW 3 Serisi",
+    "specs": "2.0L Turbo, Otomatik, Benzin",
+    "price": 1500,
+    "image": "/images/bmw.jpg"
+  },
+  {
+    "id": 2,
+    "name": "Mercedes C-Serisi",
+    "specs": "1.6L Turbo, Otomatik, Dizel",
+    "price": 1800,
+    "image": "/images/mercedes.jpg"
+  },
+  {
+    "id": 3,
+    "name": "Volkswagen Passat",
+    "specs": "1.5L TSI, Otomatik, Benzin",
+    "price": 1200,
+    "image": "/images/volkswagen.jpg"
+  }
+] 
