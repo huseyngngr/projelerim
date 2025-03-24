@@ -1,0 +1,38 @@
+#!/bin/sh
+
+echo "Running pre-commit hooks..."
+
+# Stash değişiklikleri
+git stash -q --keep-index
+
+# Maven testlerini çalıştır
+echo "Running tests..."
+mvn test
+TEST_STATUS=$?
+
+# Checkstyle kontrolü
+echo "Running checkstyle..."
+mvn checkstyle:check
+CHECKSTYLE_STATUS=$?
+
+# Spotless kontrolü (kod formatı)
+echo "Running spotless..."
+mvn spotless:check
+SPOTLESS_STATUS=$?
+
+# PMD kontrolü (kod kalitesi)
+echo "Running PMD..."
+mvn pmd:check
+PMD_STATUS=$?
+
+# Stash'i geri al
+git stash pop -q
+
+# Hata durumunu kontrol et
+if [ $TEST_STATUS -eq 0 ] && [ $CHECKSTYLE_STATUS -eq 0 ] && [ $SPOTLESS_STATUS -eq 0 ] && [ $PMD_STATUS -eq 0 ]; then
+    echo "All checks passed!"
+    exit 0
+else
+    echo "Some checks failed. Please fix the issues before committing."
+    exit 1
+fi 

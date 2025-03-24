@@ -1,0 +1,47 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: healthylife-peer-auth
+  namespace: healthylife
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: healthylife-auth-policy
+  namespace: healthylife
+spec:
+  selector:
+    matchLabels:
+      app: healthylife-backend
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/healthylife/sa/healthylife-frontend"]
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        paths: ["/api/*"]
+  - from:
+    - source:
+        namespaces: ["monitoring"]
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/metrics", "/health"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: healthylife-jwt-auth
+  namespace: healthylife
+spec:
+  selector:
+    matchLabels:
+      app: healthylife-backend
+  jwtRules:
+  - issuer: "https://healthylife.auth0.com/"
+    jwksUri: "https://healthylife.auth0.com/.well-known/jwks.json"
+    forwardOriginalToken: true 

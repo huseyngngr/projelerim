@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: healthylife
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/your-org/healthy-life.git'
+    path: infrastructure/kubernetes
+    targetRevision: HEAD
+    directory:
+      recurse: true
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: healthylife
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: healthylife
+  namespace: argocd
+spec:
+  description: Healthy Life Application Project
+  sourceRepos:
+    - 'https://github.com/your-org/healthy-life.git'
+  destinations:
+    - namespace: healthylife
+      server: 'https://kubernetes.default.svc'
+    - namespace: monitoring
+      server: 'https://kubernetes.default.svc'
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: ResourceQuota
+    - group: ''
+      kind: LimitRange
+  roles:
+    - name: developer
+      description: Developer role
+      policies:
+        - p, proj:healthylife:developer, applications, sync, healthylife/*, allow
+        - p, proj:healthylife:developer, applications, get, healthylife/*, allow
+      groups:
+        - healthylife-developers 

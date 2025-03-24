@@ -1,0 +1,305 @@
+openapi: 3.0.3
+info:
+  title: Healthy Life API
+  description: Healthy Life uygulaması için REST API dokümantasyonu
+  version: 1.0.0
+  contact:
+    name: Healthy Life Team
+    email: support@healthylife.com
+    url: https://healthylife.com
+
+servers:
+  - url: https://api.healthylife.com/v1
+    description: Production server
+  - url: https://staging-api.healthylife.com/v1
+    description: Staging server
+  - url: http://localhost:8080/v1
+    description: Local development server
+
+tags:
+  - name: auth
+    description: Kimlik doğrulama işlemleri
+  - name: metrics
+    description: Sağlık metrikleri işlemleri
+  - name: reports
+    description: Rapor işlemleri
+  - name: profile
+    description: Kullanıcı profili işlemleri
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - auth
+      summary: Kullanıcı girişi
+      description: Kullanıcı adı ve şifre ile giriş yapma
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Başarılı giriş
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Geçersiz kimlik bilgileri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /metrics:
+    post:
+      tags:
+        - metrics
+      summary: Yeni metrik ekleme
+      description: Yeni bir sağlık metriği ekleme
+      operationId: addMetric
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricRequest'
+      responses:
+        '201':
+          description: Metrik başarıyla eklendi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricResponse'
+        '400':
+          description: Geçersiz istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Yetkisiz erişim
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - metrics
+      summary: Metrikleri listeleme
+      description: Kullanıcının metriklerini listeleme
+      operationId: getMetrics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: startDate
+          in: query
+          description: Başlangıç tarihi
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: Bitiş tarihi
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: type
+          in: query
+          description: Metrik tipi
+          required: false
+          schema:
+            type: string
+            enum: [WEIGHT, BLOOD_PRESSURE, HEART_RATE, STEPS, SLEEP]
+      responses:
+        '200':
+          description: Metrikler başarıyla listelendi
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetricResponse'
+        '401':
+          description: Yetkisiz erişim
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reports/generate:
+    post:
+      tags:
+        - reports
+      summary: Rapor oluşturma
+      description: Belirli bir tarih aralığı için rapor oluşturma
+      operationId: generateReport
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+      responses:
+        '202':
+          description: Rapor oluşturma işlemi başlatıldı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        '400':
+          description: Geçersiz istek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Yetkisiz erişim
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: john.doe
+        password:
+          type: string
+          format: password
+          example: "********"
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        expiresIn:
+          type: integer
+          format: int64
+          example: 3600
+
+    MetricRequest:
+      type: object
+      required:
+        - type
+        - value
+        - date
+      properties:
+        type:
+          type: string
+          enum: [WEIGHT, BLOOD_PRESSURE, HEART_RATE, STEPS, SLEEP]
+        value:
+          type: number
+          format: float
+          example: 75.5
+        date:
+          type: string
+          format: date
+          example: "2024-03-20"
+        notes:
+          type: string
+          example: "After morning exercise"
+
+    MetricResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [WEIGHT, BLOOD_PRESSURE, HEART_RATE, STEPS, SLEEP]
+        value:
+          type: number
+          format: float
+        date:
+          type: string
+          format: date
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ReportRequest:
+      type: object
+      required:
+        - startDate
+        - endDate
+        - type
+      properties:
+        startDate:
+          type: string
+          format: date
+          example: "2024-02-20"
+        endDate:
+          type: string
+          format: date
+          example: "2024-03-20"
+        type:
+          type: string
+          enum: [DAILY, WEEKLY, MONTHLY]
+        format:
+          type: string
+          enum: [PDF, EXCEL, CSV]
+          default: PDF
+
+    ReportResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+        downloadUrl:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT 
