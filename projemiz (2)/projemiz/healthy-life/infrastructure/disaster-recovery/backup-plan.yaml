@@ -1,0 +1,62 @@
+apiVersion: backup.aws.k8s.aws/v1alpha1
+kind: BackupPlan
+metadata:
+  name: healthylife-backup-plan
+spec:
+  backupPlanName: healthylife-backup
+  rules:
+    - ruleName: daily-backup
+      scheduleExpression: "cron(0 1 * * ? *)"  # Her gün gece 01:00'de
+      startWindowMinutes: 60
+      completionWindowMinutes: 120
+      lifecycle:
+        deleteAfterDays: 30
+        moveToColdStorageAfterDays: 7
+      recoveryPointTags:
+        - key: Application
+          value: HealthyLife
+      targetBackupVault: healthylife-backup-vault
+      copyActions:
+        - destinationBackupVaultArn: arn:aws:backup:eu-central-1:${AWS_ACCOUNT_ID}:backup-vault:healthylife-dr-vault
+          lifecycle:
+            deleteAfterDays: 30
+            moveToColdStorageAfterDays: 7
+
+    - ruleName: weekly-backup
+      scheduleExpression: "cron(0 1 ? * SUN *)"  # Her Pazar gece 01:00'de
+      startWindowMinutes: 120
+      completionWindowMinutes: 240
+      lifecycle:
+        deleteAfterDays: 90
+        moveToColdStorageAfterDays: 30
+      recoveryPointTags:
+        - key: Application
+          value: HealthyLife
+        - key: BackupType
+          value: Weekly
+      targetBackupVault: healthylife-backup-vault
+      copyActions:
+        - destinationBackupVaultArn: arn:aws:backup:eu-central-1:${AWS_ACCOUNT_ID}:backup-vault:healthylife-dr-vault
+          lifecycle:
+            deleteAfterDays: 90
+            moveToColdStorageAfterDays: 30
+
+---
+apiVersion: backup.aws.k8s.aws/v1alpha1
+kind: BackupSelection
+metadata:
+  name: healthylife-backup-selection
+spec:
+  backupPlanName: healthylife-backup
+  resources:
+    - rdsInstances:
+        - dbInstanceArn: arn:aws:rds:eu-west-1:${AWS_ACCOUNT_ID}:db:healthylife-db
+    - elasticacheInstances:
+        - elasticacheClusterArn: arn:aws:elasticache:eu-west-1:${AWS_ACCOUNT_ID}:cluster:healthylife-redis
+    - s3Resources:
+        - bucketName: healthylife-storage
+    - dynamodbTables:
+        - tableArn: arn:aws:dynamodb:eu-west-1:${AWS_ACCOUNT_ID}:table/healthylife-sessions
+    - tags:
+        - key: Application
+          value: HealthyLife 

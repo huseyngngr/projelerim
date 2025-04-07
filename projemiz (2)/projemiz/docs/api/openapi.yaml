@@ -1,0 +1,98 @@
+openapi: 3.0.3
+info:
+  title: Healthy Life API
+  description: API documentation for Healthy Life application
+  version: 1.0.0
+  contact:
+    name: Healthy Life Team
+    email: support@healthylife.com
+
+servers:
+  - url: http://localhost:8080/api
+    description: Local development server
+  - url: https://api.healthylife.com
+    description: Production server
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+
+  /metrics:
+    get:
+      tags:
+        - Health Metrics
+      summary: Get user health metrics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of health metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HealthMetric'
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    HealthMetric:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [WEIGHT, BLOOD_PRESSURE, HEART_RATE, STEPS]
+        value:
+          type: number
+        unit:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT 

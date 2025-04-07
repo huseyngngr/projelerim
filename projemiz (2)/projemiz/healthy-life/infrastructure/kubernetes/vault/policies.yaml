@@ -1,0 +1,139 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-policies
+  namespace: vault
+data:
+  app-policy.hcl: |
+    # Veritabanı kimlik bilgileri için politika
+    path "database/creds/healthylife" {
+      capabilities = ["read"]
+    }
+
+    # Uygulama sırları için politika
+    path "secret/data/healthylife/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    # Transit şifreleme için politika
+    path "transit/encrypt/healthylife" {
+      capabilities = ["create", "read", "update"]
+    }
+    path "transit/decrypt/healthylife" {
+      capabilities = ["create", "read", "update"]
+    }
+
+    # PKI sertifikaları için politika
+    path "pki/issue/healthylife" {
+      capabilities = ["create", "read", "update"]
+    }
+
+  admin-policy.hcl: |
+    # Tam yönetici erişimi
+    path "sys/*" {
+      capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+    }
+
+    path "auth/*" {
+      capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+    }
+
+    path "secret/*" {
+      capabilities = ["create", "read", "update", "delete", "list"]
+    }
+
+    path "database/*" {
+      capabilities = ["create", "read", "update", "delete", "list"]
+    }
+
+    path "pki/*" {
+      capabilities = ["create", "read", "update", "delete", "list"]
+    }
+
+  monitoring-policy.hcl: |
+    # İzleme için salt okunur erişim
+    path "sys/metrics" {
+      capabilities = ["read"]
+    }
+
+    path "sys/health" {
+      capabilities = ["read"]
+    }
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: healthylife-cert
+  namespace: healthylife
+spec:
+  secretName: healthylife-tls
+  duration: 2160h # 90 gün
+  renewBefore: 360h # 15 gün
+  subject:
+    organizations:
+      - Healthy Life
+  commonName: healthylife.com
+  dnsNames:
+    - healthylife.com
+    - "*.healthylife.com"
+  issuerRef:
+    name: vault-issuer
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: vault-issuer
+spec:
+  vault:
+    server: http://vault.vault:8200
+    path: pki/sign/healthylife
+    auth:
+      kubernetes:
+        mountPath: /v1/auth/kubernetes
+        role: healthylife
+        secretRef:
+          name: cert-manager-token
+          key: token
+---
+apiVersion: vault.banzaicloud.com/v1alpha1
+kind: VaultSecret
+metadata:
+  name: healthylife-database
+  namespace: healthylife
+spec:
+  path: database/creds/healthylife
+  type: kubernetes.io/basic-auth
+  refresh: 1h
+---
+apiVersion: vault.banzaicloud.com/v1alpha1
+kind: VaultSecret
+metadata:
+  name: healthylife-api-keys
+  namespace: healthylife
+spec:
+  path: secret/data/healthylife/api-keys
+  type: Opaque
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vault-secret-rotation
+  namespace: healthylife
+spec:
+  schedule: "0 0 * * *"  # Her gün gece yarısı
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: secret-rotation
+            image: vault:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              vault write -f database/rotate-root/healthylife
+              vault write -f pki/rotate/healthylife
+          restartPolicy: OnFailure 

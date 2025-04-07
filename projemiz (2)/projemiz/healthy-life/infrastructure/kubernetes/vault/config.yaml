@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-config
+  namespace: vault
+data:
+  config.hcl: |
+    ui = true
+    
+    storage "file" {
+      path = "/vault/data"
+    }
+
+    listener "tcp" {
+      address = "[::]:8200"
+      tls_disable = 1
+    }
+
+    seal "awskms" {
+      region = "eu-west-1"
+      kms_key_id = "alias/vault-healthylife"
+    }
+---
+apiVersion: vault.banzaicloud.com/v1alpha1
+kind: Vault
+metadata:
+  name: vault
+  namespace: vault
+spec:
+  size: 3
+  image: vault:1.12.1
+  bankVaultsImage: banzaicloud/bank-vaults:latest
+
+  serviceAccount: vault
+  serviceType: ClusterIP
+
+  config:
+    storage:
+      file:
+        path: "/vault/file"
+
+  externalConfig:
+    policies:
+      - name: healthylife
+        rules: |
+          path "secret/data/healthylife/*" {
+            capabilities = ["create", "read", "update", "delete", "list"]
+          }
+          
+          path "database/creds/healthylife" {
+            capabilities = ["read"]
+          }
+
+    auth:
+      - type: kubernetes
+        roles:
+          - name: healthylife
+            bound_service_account_names: ["healthylife"]
+            bound_service_account_namespaces: ["healthylife"]
+            policies: ["healthylife"]
+            ttl: 1h
+
+    secrets:
+      - path: database
+        type: database
+        configuration:
+          config:
+            - name: healthylife
+              plugin_name: "postgresql-database-plugin"
+              allowed_roles: ["healthylife"]
+              connection_url: "postgresql://{{username}}:{{password}}@postgresql:5432/healthylife?sslmode=disable"
+              username: "vault"
+              password: "vault-password"
+          roles:
+            - name: healthylife
+              db_name: healthylife
+              creation_statements: |
+                CREATE ROLE "{{name}}" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';
+                GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "{{name}}";
+              default_ttl: "1h"
+              max_ttl: "24h"
+
+      - path: secret
+        type: kv-v2 

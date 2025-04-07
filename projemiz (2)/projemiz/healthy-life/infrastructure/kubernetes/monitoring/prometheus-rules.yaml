@@ -1,0 +1,83 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: healthylife-alerts
+  namespace: monitoring
+  labels:
+    app: kube-prometheus-stack
+    release: prometheus
+spec:
+  groups:
+  - name: healthylife.rules
+    rules:
+    - alert: HighCPUUsage
+      expr: avg(rate(container_cpu_usage_seconds_total{container="healthylife-backend"}[5m])) * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High CPU usage detected
+        description: Container CPU usage is above 80% for 5 minutes
+
+    - alert: HighMemoryUsage
+      expr: avg(container_memory_usage_bytes{container="healthylife-backend"}) / avg(container_spec_memory_limit_bytes{container="healthylife-backend"}) * 100 > 85
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High memory usage detected
+        description: Container memory usage is above 85% for 5 minutes
+
+    - alert: HighErrorRate
+      expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) / sum(rate(http_server_requests_seconds_count[5m])) * 100 > 5
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: High error rate detected
+        description: Application error rate is above 5% for 2 minutes
+
+    - alert: SlowResponseTime
+      expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job="healthylife-backend"}[5m])) by (le)) > 2
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: Slow response time detected
+        description: 95th percentile of response time is above 2 seconds for 5 minutes
+
+    - alert: HighDBConnections
+      expr: sum(pg_stat_activity_count{datname="healthylife"}) > 80
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High database connections
+        description: Number of database connections is above 80 for 5 minutes
+
+    - alert: RedisHighMemory
+      expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: Redis high memory usage
+        description: Redis memory usage is above 80% for 5 minutes
+
+    - alert: PodRestarts
+      expr: increase(kube_pod_container_status_restarts_total{container="healthylife-backend"}[1h]) > 2
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: Frequent pod restarts
+        description: Pod has restarted more than 2 times in the last hour
+
+    - alert: CertificateExpiringSoon
+      expr: avg_over_time(ssl_certificate_expiry_seconds{job="healthylife-backend"}[5m]) < 7 * 24 * 3600
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: SSL certificate expiring soon
+        description: SSL certificate will expire in less than 7 days 
